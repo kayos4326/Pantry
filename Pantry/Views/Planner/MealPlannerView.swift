@@ -6,8 +6,7 @@ struct MealPlannerView: View {
     @Query private var plannedMeals: [PlannedMeal]
 
     @State private var selectedDate = Calendar.current.startOfDay(for: .now)
-    /// What the picker sheet is for: adding a meal to the day, or replacing
-    /// one already on it. One piece of state, so the two can't disagree.
+    /// Identifies whether the picker adds or replaces a meal.
     @State private var pickerTarget: PickerTarget?
     @Environment(\.dynamicTypeSize) private var typeSize
 
@@ -31,15 +30,13 @@ struct MealPlannerView: View {
     private let calendar = Calendar.current
     private let readableWidth: CGFloat = 720
 
-    /// 5 days back for catch-up, plus today and 24 ahead — a 30-day window.
+    /// Five previous days, today, and 24 upcoming days.
     private var dates: [Date] {
         let today = calendar.startOfDay(for: .now)
         return (-5...24).compactMap { calendar.date(byAdding: .day, value: $0, to: today) }
     }
 
     var body: some View {
-        // Built once per redraw instead of re-scanning every plan for each of
-        // the 30 dates in the strip.
         let markers = PrepSchedule.markers(
             plans: plannedMeals
                 .filter { $0.recipe != nil }
@@ -49,8 +46,6 @@ struct MealPlannerView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    // Same readable column as the day section below, so the
-                    // two line up on iPad instead of the header hugging the edge.
                     PageHeader(eyebrow: "Next 30 days", title: "Meal Planner")
                         .frame(maxWidth: readableWidth, alignment: .leading)
                         .padding(.horizontal, 20)
@@ -106,7 +101,7 @@ struct MealPlannerView: View {
 
     // MARK: - Selected day
 
-    /// The day's meals in the order they were added, then a way to add one.
+    /// Shows the day's meals followed by the add action.
     private var plannedSection: some View {
         let meals = plannedMeals(on: selectedDate)
 
@@ -122,8 +117,6 @@ struct MealPlannerView: View {
     }
 
     private func plannedCard(_ meal: PlannedMeal, recipe: SavedRecipe) -> some View {
-        // At accessibility sizes the Change button drops below the recipe
-        // rather than squeezing its name into a sliver.
         let rowLayout = typeSize.isAccessibilitySize
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
             : AnyLayout(HStackLayout(spacing: 12))
@@ -181,8 +174,7 @@ struct MealPlannerView: View {
             .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
-    /// Doubles as the empty state: the first meal gets the full-height card,
-    /// and once the day has meals it shrinks to a row under them.
+    /// Uses a larger treatment when the selected day is empty.
     private func addMealButton(isFirst: Bool) -> some View {
         Button {
             pickerTarget = .add
@@ -231,7 +223,7 @@ struct MealPlannerView: View {
         }
     }
 
-    /// Banner inside the meal card when the recipe needs, or offers, a head start.
+    /// Shows required or optional make-ahead guidance.
     @ViewBuilder
     private func makeAheadNote(for recipe: SavedRecipe) -> some View {
         if let ahead = recipe.asMeal.timing.makeAhead {
@@ -250,8 +242,6 @@ struct MealPlannerView: View {
                         .foregroundStyle(note.isUrgent ? Theme.brick : Theme.textDark)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    // The quoted sentence is the evidence for the warning, so
-                    // it isn't truncated at large text sizes.
                     Text("\"\(ahead.phrase.trimmingCharacters(in: .whitespaces))\"")
                         .font(Typeface.mono(9))
                         .foregroundStyle(Theme.textMuted)
@@ -309,8 +299,7 @@ struct MealPlannerView: View {
         }
     }
 
-    /// Meals planned for *later* dates whose prep has to begin on the
-    /// selected date.
+    /// Prep tasks due on the selected date for later meals.
     @ViewBuilder
     private var prepSection: some View {
         let tasks = prepTasks(on: selectedDate)
@@ -362,8 +351,7 @@ struct MealPlannerView: View {
 
     // MARK: - Data
 
-    /// The day's meals, oldest first. Rows whose recipe has been unsaved are
-    /// left out, so the cards and the strip markers can never disagree.
+    /// Returns valid meals for a date in insertion order.
     private func plannedMeals(on date: Date) -> [PlannedMeal] {
         plannedMeals
             .filter { $0.recipe != nil && calendar.isDate($0.date, inSameDayAs: date) }
@@ -378,8 +366,7 @@ struct MealPlannerView: View {
         }
         .sorted { $0.date < $1.date }
 
-        // The same recipe twice on one day is one batch of marinating, not
-        // two, so it earns one reminder.
+        // One recipe batch on one date produces one reminder.
         var seen: Set<String> = []
         return due.filter { meal in
             guard let recipe = meal.recipe else { return false }
@@ -393,8 +380,7 @@ struct MealPlannerView: View {
         }
     }
 
-    /// Swaps the recipe on an existing row, keeping its place in the day's
-    /// order rather than moving it to the end.
+    /// Replaces a recipe without changing its order in the day.
     private func replace(_ meal: PlannedMeal, with recipe: SavedRecipe) {
         withAnimation(.easeInOut(duration: 0.2)) {
             meal.recipe = recipe

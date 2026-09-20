@@ -1,8 +1,10 @@
 import Foundation
+import OSLog
 import SwiftData
 
 enum PantryModelContainer {
     static let schema = Schema([SavedRecipe.self, PlannedMeal.self, RecentRecipe.self])
+    private static let logger = Logger(subsystem: "com.pantry.app.Pantry", category: "Persistence")
 
     /// Opens the app's store without ever deleting or replacing it on failure.
     /// The caller decides how to present an unavailable store to the user.
@@ -11,7 +13,11 @@ enum PantryModelContainer {
         // overwrite the recipes and plans saved on the device.
         let isUITesting = ProcessInfo.processInfo.arguments.contains("-ui-testing")
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: isUITesting)
-        return make(configuration: configuration)
+        let result = make(configuration: configuration)
+        if case .failure(let error) = result {
+            logger.error("Failed to open the persistent store: \(error.localizedDescription)")
+        }
+        return result
     }
 
     /// Kept separate so the failure path can be tested with an unavailable

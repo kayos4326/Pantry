@@ -3,8 +3,6 @@ import SwiftData
 
 struct SavedView: View {
     @Environment(\.modelContext) private var context
-    // Reading SwiftData straight from the view is what keeps the grid in sync
-    // automatically; wrapping @Query in a view model would break that.
     @Query(sort: \SavedRecipe.savedAt, order: .reverse) private var savedRecipes: [SavedRecipe]
     @Namespace private var cardNamespace
     @State private var recipePendingRemoval: SavedRecipe?
@@ -56,8 +54,7 @@ struct SavedView: View {
                 Text("Removing it from Saved also removes it from those days in the Meal Planner.")
             }
         }
-        // Recipes saved while offline, or before photos were stored, pick up
-        // their image the next time the tab is shown with a connection.
+        // Retry missing images when the saved collection changes.
         .task(id: savedRecipes.count) {
             for recipe in savedRecipes where recipe.imageData == nil {
                 await recipe.storeImageIfNeeded()
@@ -78,8 +75,6 @@ struct SavedView: View {
                     .accessibilityIdentifier("saved.recipeCard")
                     .matchedTransitionSource(id: meal.id, in: cardNamespace)
 
-                    // Sibling of the link rather than nested inside it, so the
-                    // tap targets don't fight each other.
                     removeButton(recipe)
                         .padding(1)
                 }
@@ -103,7 +98,6 @@ struct SavedView: View {
                 .foregroundStyle(Theme.brick)
                 .frame(width: 30, height: 30)
                 .background(Circle().fill(Theme.surface))
-                // 44 pt touch target; the visible circle stays 30 pt.
                 .padding(7)
                 .contentShape(Rectangle())
         }
@@ -117,7 +111,7 @@ struct SavedView: View {
         return "\(recipe.name) is planned on \(days) day\(days == 1 ? "" : "s")"
     }
 
-    /// Unsaving cascades to the planner, so a recipe that's planned asks first.
+    /// Confirms before cascading an unsave into the planner.
     private func remove(_ recipe: SavedRecipe) {
         if recipe.plannedMeals.isEmpty {
             delete(recipe)

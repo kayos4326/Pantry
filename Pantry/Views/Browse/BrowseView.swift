@@ -19,8 +19,6 @@ struct BrowseView: View {
                     chipRow
                         .padding(.top, 12)
 
-                    // Only alongside the default feed: while searching or
-                    // filtering, the results are what the user asked for.
                     if viewModel.currentRequest == .defaultFeed {
                         RecentlyViewedStrip()
                             .padding(.top, 18)
@@ -60,7 +58,7 @@ struct BrowseView: View {
         }
     }
 
-    /// Set only while the grid is showing results read back from disk.
+    /// Metadata for results restored from disk.
     private var offlineCopy: BrowseViewModel.OfflineCopy? {
         if case .loaded(_, let offline) = viewModel.state { return offline }
         return nil
@@ -82,8 +80,7 @@ struct BrowseView: View {
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
                 .focused($searchFocused)
-                // Inter's tall ascenders need more than the text field's
-                // intrinsic height, which otherwise clips the glyphs.
+                // Prevents Inter's ascenders from clipping.
                 .frame(minHeight: 28)
 
             if !viewModel.searchText.isEmpty {
@@ -93,7 +90,6 @@ struct BrowseView: View {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 15))
                         .foregroundStyle(Theme.textMuted.opacity(0.7))
-                        // 44 pt touch target without changing the field's height.
                         .padding(14)
                         .contentShape(Rectangle())
                         .padding(-14)
@@ -134,9 +130,7 @@ struct BrowseView: View {
             }
             .padding(.horizontal, 20)
         }
-        // Bleed the scroll view to the screen edges so chips can scroll
-        // out past the page padding, then restore the inset. The vertical
-        // pull-in cancels the chips' enlarged touch padding in the layout.
+        // Allows chips to scroll through the page margins.
         .padding(.horizontal, -20)
         .padding(.vertical, -8)
     }
@@ -197,8 +191,6 @@ struct CategoryChip: View {
                     Capsule()
                         .strokeBorder(isSelected ? Theme.brick : Theme.textDark, lineWidth: 1)
                 }
-                // The capsule is ~29 pt tall; this extends the touch target to
-                // 44 pt without changing how it looks.
                 .padding(.vertical, 8)
                 .contentShape(Rectangle())
         }

@@ -5,8 +5,7 @@ import Foundation
 final class BrowseViewModel {
     enum ViewState {
         case loading
-        /// `offline` is non-nil when the request failed and these results came
-        /// from the copy on disk instead, so the view can say so.
+        /// `offline` identifies results restored from disk.
         case loaded([Meal], offline: OfflineCopy?)
         case empty(message: String)
         case failed(message: String)
@@ -14,13 +13,11 @@ final class BrowseViewModel {
 
     struct OfflineCopy: Equatable {
         let storedAt: Date
-        /// False when the request failed for some reason other than
-        /// connectivity, e.g. a server error. Only the wording changes.
+        /// Distinguishes disconnection from other server failures.
         let isDisconnected: Bool
     }
 
-    /// What the current inputs resolve to. TheMealDB has no combined
-    /// search+category endpoint, so exactly one of these is in play at a time.
+    /// TheMealDB has no combined search-and-category endpoint.
     enum Request: Equatable {
         case defaultFeed
         case search(String)
@@ -33,9 +30,7 @@ final class BrowseViewModel {
         get { storedSearchText }
         set {
             storedSearchText = newValue
-            // Search and category are mutually exclusive, so typing drops the
-            // chip filter. Doing it here rather than during the load keeps both
-            // mutations in one pass, so `requestKey` only changes once.
+            // Search and category are mutually exclusive.
             if !newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 selectedCategory = nil
             }
@@ -49,9 +44,7 @@ final class BrowseViewModel {
     private let network: NetworkManager
     private let debounce: Duration
 
-    /// Incremented for every load. A response is only applied if no newer
-    /// load has started since — otherwise a slow retry could land after, and
-    /// overwrite, the results of a category the user picked later.
+    /// Prevents older responses from replacing newer results.
     private var generation = 0
 
     init(network: NetworkManager = .shared, debounce: Duration = .milliseconds(350)) {
@@ -59,9 +52,7 @@ final class BrowseViewModel {
         self.debounce = debounce
     }
 
-    /// Single key derived from both inputs. The view drives loading off this,
-    /// so search text and category selection can never disagree about what
-    /// should be on screen.
+    /// Drives SwiftUI's load task from both request inputs.
     var requestKey: String {
         "\(trimmedQuery)|\(selectedCategory ?? "")"
     }
@@ -78,9 +69,7 @@ final class BrowseViewModel {
 
     func loadCategories() async {
         guard categories.isEmpty else { return }
-        // A failure here only costs the filter chips; the grid still works,
-        // so this doesn't put the whole screen into an error state. Offline,
-        // the chips from the last successful load are worth keeping.
+        // Category failure does not block the recipe grid.
         if let live = try? await network.fetchCategories() {
             categories = live
         } else {
@@ -88,8 +77,7 @@ final class BrowseViewModel {
         }
     }
 
-    /// Called by the view whenever `requestKey` changes. Typing is debounced;
-    /// tapping a chip is not.
+    /// Debounces searches; category selections load immediately.
     func loadForCurrentInputs() async {
         if !trimmedQuery.isEmpty {
             do {
@@ -102,23 +90,18 @@ final class BrowseViewModel {
     }
 
     func select(category name: String?) {
-        // Category and search are mutually exclusive, so picking a chip
-        // clears any query. Both mutations land before the view re-reads
-        // requestKey, so this triggers exactly one load.
         searchText = ""
         selectedCategory = (selectedCategory == name) ? nil : name
     }
 
-    /// Retry after a failure. Chips that failed to load alongside the grid
-    /// get another attempt too.
+    /// Retries both recipes and category chips.
     func retry() async {
         async let chips: Void = loadCategories()
         await load(currentRequest, showSkeleton: true)
         await chips
     }
 
-    /// Pull-to-refresh keeps the current results on screen until new ones
-    /// arrive, rather than flashing back to skeletons.
+    /// Refreshes without replacing current results with skeletons.
     func refresh() async {
         async let chips: Void = loadCategories()
         await load(currentRequest, showSkeleton: false)
@@ -135,8 +118,7 @@ final class BrowseViewModel {
             let meals: [Meal]
             switch request {
             case .defaultFeed:
-                // An empty query returns a starter set of meals, which saves
-                // hardcoding a default category.
+                // The API treats an empty search as the default feed.
                 meals = try await network.searchMeals(named: "")
             case .search(let query):
                 meals = try await network.searchMeals(named: query)
@@ -147,8 +129,7 @@ final class BrowseViewModel {
         } catch is CancellationError {
             return
         } catch NetworkError.emptyResults {
-            // A genuine "no matches" answer from the server, not a failure to
-            // reach it, so the offline copy would only be misleading here.
+            // Never replace a genuine empty result with stale data.
             outcome = .empty(message: Self.emptyMessage(for: request))
         } catch {
             if Task.isCancelled { return }
@@ -169,8 +150,7 @@ final class BrowseViewModel {
         state = outcome
     }
 
-    /// The stored copy of whatever the current inputs ask for. The default
-    /// feed and an empty search are the same request, so they share a copy.
+    /// The default feed and empty search share one cache entry.
     private func cachedResults(for request: Request) async -> NetworkManager.Cached<[Meal]>? {
         switch request {
         case .defaultFeed: await network.cachedMeals(search: "")

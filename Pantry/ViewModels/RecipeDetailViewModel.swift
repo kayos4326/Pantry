@@ -24,10 +24,7 @@ final class RecipeDetailViewModel {
         return nil
     }
 
-    /// Meals arriving from category browsing carry no instructions or
-    /// ingredients, so they're re-fetched by id. A copy already on the device
-    /// — saved, or from a previous visit — is preferred over the network,
-    /// which is what lets those recipes open with no connection.
+    /// Hydrates partial category results, preferring a complete local copy.
     func loadIfNeeded(localCopy: Meal?) async {
         guard case .loading = state else { return }
 
@@ -41,12 +38,9 @@ final class RecipeDetailViewModel {
         } catch is CancellationError {
             return
         } catch {
-            // The stored copy of this recipe, if it's been opened before. It's
-            // complete, so it's preferred over a partial saved copy.
             if let cached = await network.cachedMeal(id: mealID), cached.value.isFullyLoaded {
                 state = .ready(cached.value)
             } else if let localCopy {
-                // Falling back to a partial local copy still beats an error screen.
                 state = .ready(localCopy)
             } else {
                 state = .failed(message: error.localizedDescription)

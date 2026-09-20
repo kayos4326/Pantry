@@ -4,20 +4,16 @@ import SwiftData
 struct RecipeDetailView: View {
     @Environment(\.modelContext) private var context
     @Query private var savedMatches: [SavedRecipe]
-    /// A previous visit's copy, which stands in for the network the same way a
-    /// saved one does.
+    /// A previous visit can provide an offline copy.
     @Query private var recentMatches: [RecentRecipe]
     @State private var viewModel: RecipeDetailViewModel
-    /// What the card handed over, kept so a visit can be recorded even if the
-    /// full recipe never arrives.
+    /// The partial or complete meal passed by the previous screen.
     private let meal: Meal
 
-    /// Purely local, as specified — ticking ingredients isn't persisted.
     @State private var checkedIngredients: Set<Int> = []
     @State private var heartScale: CGFloat = 1
     @State private var isConfirmingUnsave = false
 
-    /// Keeps long lines readable on iPad instead of spanning the whole screen.
     private let readableWidth: CGFloat = 720
 
     init(meal: Meal) {
@@ -31,8 +27,7 @@ struct RecipeDetailView: View {
     private var savedRecipe: SavedRecipe? { savedMatches.first }
     private var isSaved: Bool { savedRecipe != nil }
 
-    /// The best copy already on the device: whichever of the saved and
-    /// recently viewed rows is complete, falling back to a partial one.
+    /// Prefers a complete saved or recently viewed copy.
     private var localCopy: Meal? {
         let copies = [savedRecipe?.asMeal, recentMatches.first?.asMeal].compactMap { $0 }
         return copies.first(where: \.isFullyLoaded) ?? copies.first
@@ -43,7 +38,7 @@ struct RecipeDetailView: View {
             Group {
                 switch viewModel.state {
                 case .loading:
-                    DetailSkeleton()
+                    RecipeDetailSkeleton()
                         .padding(.bottom, 24)
 
                 case .ready(let meal):
@@ -64,8 +59,7 @@ struct RecipeDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await viewModel.loadIfNeeded(localCopy: localCopy)
-            // Recorded after loading, so the entry gets the hydrated recipe's
-            // category rather than the blank one a filtered card carries.
+            // Record the hydrated meal when available.
             let recent = RecentRecipe.record(viewModel.meal ?? meal, in: context)
             await recent.storeImageIfNeeded()
         }
@@ -109,7 +103,7 @@ struct RecipeDetailView: View {
 
                 VStack(spacing: 0) {
                     ForEach(meal.ingredients) { ingredient in
-                        IngredientRow(
+                        RecipeIngredientRow(
                             ingredient: ingredient,
                             isChecked: checkedIngredients.contains(ingredient.id)
                         ) {
@@ -187,7 +181,6 @@ struct RecipeDetailView: View {
                 .frame(width: 38, height: 38)
                 .background(Circle().fill(Theme.surface))
                 .scaleEffect(heartScale)
-                // 44 pt touch target around the 38 pt circle.
                 .padding(3)
                 .contentShape(Rectangle())
         }
@@ -197,8 +190,7 @@ struct RecipeDetailView: View {
         .accessibilityIdentifier("detail.saveButton")
     }
 
-    /// TheMealDB has no cook-time field, so these numbers are read out of the
-    /// instruction text. Labelled as estimates for that reason.
+    /// Displays timing estimates parsed from the instructions.
     @ViewBuilder
     private func timingCard(_ meal: Meal) -> some View {
         let timing = meal.timing
@@ -259,8 +251,6 @@ struct RecipeDetailView: View {
     }
 
     private func metaRow(_ meal: Meal) -> some View {
-        // Category and area are real fields; a tag fills the third slot when
-        // TheMealDB provides one. There is no cook time or serving count.
         let pills = ([meal.category, meal.area].compactMap { $0 } + meal.tagList.prefix(1))
 
         return FlowLayout(spacing: 10, rowSpacing: 8) {
@@ -280,13 +270,11 @@ struct RecipeDetailView: View {
 
     private struct NumberedLine: Identifiable {
         let id: Int
-        /// nil for a sub-heading.
         let number: Int?
         let text: String
     }
 
-    /// Numbers run continuously across sub-headings, so "step 4" is
-    /// unambiguous when reading aloud or following along.
+    /// Numbers steps continuously across subheadings.
     private func numberedLines(_ lines: [InstructionLine]) -> [NumberedLine] {
         var stepNumber = 0
         return lines.enumerated().map { index, line in
@@ -323,16 +311,12 @@ struct RecipeDetailView: View {
 
     private func toggleSave(_ meal: Meal) {
         if savedRecipe != nil {
-            // Unsaving cascades to the planner, so ask first rather than
-            // silently wiping planned days on a single tap.
             if plannedDayCount > 0 {
                 isConfirmingUnsave = true
                 return
             }
             removeSavedRecipe()
         } else {
-            // `meal` is always the hydrated copy here, so a recipe opened from
-            // a category filter still saves with its full ingredient list.
             let recipe = SavedRecipe(meal: meal)
             context.insert(recipe)
             Task { await recipe.storeImageIfNeeded() }
@@ -354,111 +338,5 @@ struct RecipeDetailView: View {
         withAnimation(.spring(response: 0.3, dampingFraction: 0.5).delay(0.12)) {
             heartScale = 1
         }
-    }
-}
-
-// MARK: - Ingredient row
-
-private struct IngredientRow: View {
-    let ingredient: Ingredient
-    let isChecked: Bool
-    let action: () -> Void
-
-    @Environment(\.dynamicTypeSize) private var typeSize
-    @ScaledMetric(relativeTo: .body) private var boxSize: CGFloat = 18
-
-    var body: some View {
-        Button(action: action) {
-            HStack(alignment: typeSize.isAccessibilitySize ? .top : .center, spacing: 10) {
-                RoundedRectangle(cornerRadius: 5)
-                    .strokeBorder(Theme.sage, lineWidth: 2)
-                    .background(
-                        RoundedRectangle(cornerRadius: 5)
-                            .fill(isChecked ? Theme.sage : .clear)
-                    )
-                    .frame(width: boxSize, height: boxSize)
-                    .overlay {
-                        if isChecked {
-                            Image(systemName: "checkmark")
-                                .font(.system(size: boxSize * 0.55, weight: .bold))
-                                .foregroundStyle(.white)
-                        }
-                    }
-
-                // Side by side normally; at accessibility sizes the measure
-                // sits under the name so neither is squeezed into a sliver.
-                let textLayout = typeSize.isAccessibilitySize
-                    ? AnyLayout(VStackLayout(alignment: .leading, spacing: 2))
-                    : AnyLayout(HStackLayout(spacing: 8))
-
-                textLayout {
-                    Text(ingredient.name)
-                        .font(Typeface.sans(13.5))
-                        .foregroundStyle(isChecked ? Theme.textMuted : Theme.textDark)
-                        .strikethrough(isChecked)
-                        .multilineTextAlignment(.leading)
-
-                    if !typeSize.isAccessibilitySize {
-                        Spacer(minLength: 0)
-                    }
-
-                    if !ingredient.measure.isEmpty {
-                        Text(ingredient.measure)
-                            .font(Typeface.mono(10.5, weight: .regular))
-                            .foregroundStyle(Theme.textMuted)
-                            .multilineTextAlignment(typeSize.isAccessibilitySize ? .leading : .trailing)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .padding(.vertical, 9)
-            .frame(minHeight: 44)
-            .contentShape(Rectangle())
-            .overlay(alignment: .bottom) {
-                Rectangle()
-                    .fill(Theme.paperDim)
-                    .frame(height: 1)
-            }
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(ingredient.measure.isEmpty ? ingredient.name : "\(ingredient.name), \(ingredient.measure)")
-        .accessibilityValue(isChecked ? "Checked" : "Not checked")
-        .accessibilityAddTraits(isChecked ? .isSelected : [])
-    }
-}
-
-// MARK: - Loading placeholder
-
-private struct DetailSkeleton: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Color.clear
-                .aspectRatio(1.75, contentMode: .fit)
-                .overlay { SkeletonBlock(cornerRadius: 20) }
-                .padding(.top, 6)
-
-            SkeletonBlock(cornerRadius: 6)
-                .frame(height: 26)
-                .padding(.trailing, 90)
-                .padding(.top, 16)
-
-            HStack(spacing: 10) {
-                SkeletonBlock(cornerRadius: 999).frame(width: 70, height: 24)
-                SkeletonBlock(cornerRadius: 999).frame(width: 58, height: 24)
-            }
-            .padding(.top, 10)
-
-            SkeletonBlock(cornerRadius: 4)
-                .frame(width: 92, height: 11)
-                .padding(.top, 24)
-
-            VStack(spacing: 14) {
-                ForEach(0..<5, id: \.self) { _ in
-                    SkeletonBlock(cornerRadius: 4).frame(height: 13)
-                }
-            }
-            .padding(.top, 16)
-        }
-        .accessibilityLabel("Loading recipe")
     }
 }
