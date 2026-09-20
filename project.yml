@@ -1,0 +1,98 @@
+name: Pantry
+options:
+  bundleIdPrefix: com.pantry.app
+  deploymentTarget:
+    iOS: "18.0"
+  createIntermediateGroups: true
+
+targets:
+  Pantry:
+    type: application
+    platform: iOS
+    deploymentTarget: "18.0"
+    sources:
+      - path: Pantry
+    info:
+      path: Pantry/Info.plist
+      properties:
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        CFBundleDisplayName: Pantry
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UIAppFonts:
+          - DMSerifDisplay-Regular.ttf
+          - IBMPlexMono-Regular.ttf
+          - IBMPlexMono-SemiBold.ttf
+          - IBMPlexMono-Bold.ttf
+          - Inter-Regular.ttf
+          - Inter-Medium.ttf
+          - Inter-SemiBold.ttf
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.pantry.app.Pantry
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        SUPPORTS_MACCATALYST: false
+        ENABLE_PREVIEWS: true
+        IPHONEOS_DEPLOYMENT_TARGET: "18.0"
+
+  PantryTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "18.0"
+    sources:
+      - path: PantryTests
+    dependencies:
+      - target: Pantry
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.pantry.app.PantryTests
+        GENERATE_INFOPLIST_FILE: true
+        SWIFT_VERSION: "5.0"
+        IPHONEOS_DEPLOYMENT_TARGET: "18.0"
+
+  PantryUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "18.0"
+    sources:
+      - path: PantryUITests
+    dependencies:
+      - target: Pantry
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.pantry.app.PantryUITests
+        GENERATE_INFOPLIST_FILE: true
+        SWIFT_VERSION: "5.0"
+        IPHONEOS_DEPLOYMENT_TARGET: "18.0"
+        TEST_TARGET_NAME: Pantry
+
+schemes:
+  Pantry:
+    build:
+      targets:
+        Pantry: all
+        PantryTests: [test]
+        PantryUITests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      gatherCoverageData: true
+      targets:
+        - PantryTests
+        - PantryUITests
+    archive:
+      config: Release

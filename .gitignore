@@ -1,0 +1,13 @@
+.DS_Store
+
+# Xcode per-user state and build output
+xcuserdata/
+*.xcuserstate
+DerivedData/
+build/
+
+# Local generated artifacts
+.codex-finalizer/
+.deck-build/
+.work/
+output/
