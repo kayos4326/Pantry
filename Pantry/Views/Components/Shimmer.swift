@@ -1,7 +1,6 @@
 import SwiftUI
 
-/// Sweeping highlight used by the skeleton placeholders. Honours Reduce Motion
-/// by falling back to a flat block with no animation.
+/// Loading shimmer that respects Reduce Motion.
 struct Shimmer: ViewModifier {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isAnimating = false
@@ -39,7 +38,6 @@ extension View {
     }
 }
 
-/// A flat placeholder block in the paper palette.
 struct SkeletonBlock: View {
     var cornerRadius: CGFloat = 8
 

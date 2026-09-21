@@ -1,88 +1,63 @@
 import Foundation
 
-/// A wait long enough that the cook has to start on an earlier day —
-/// marinating, brining, overnight chilling.
+/// Prep that needs to start before the meal date.
 struct MakeAheadRequirement: Hashable {
     let hours: Double
-    /// The sentence it was found in, so the UI can show its evidence rather
-    /// than asking the user to trust a number.
+    /// Original sentence shown with the estimate.
     let phrase: String
-    /// "These may now be frozen…" offers a head start; "marinate overnight"
-    /// demands one. The UI words these differently.
     let isOptional: Bool
 
-    /// Whole days ahead of serving that prep must begin.
     var leadDays: Int {
         max(1, Int((hours / 24).rounded(.up)))
     }
 }
 
-/// TheMealDB has no cook-time, prep-time or serving field — the only timing
-/// information is prose inside strInstructions. Everything here is derived
-/// from that text, never invented.
+/// Timing estimates parsed from the recipe instructions.
 struct RecipeTiming: Hashable {
-    /// Sum of durations mentioned in ordinary cooking steps.
     let activeMinutes: Int?
-    /// A wait that pushes prep to an earlier day.
     let makeAhead: MakeAheadRequirement?
-    /// Marinating, chilling or resting short enough to still happen on the day.
     let sameDayWaitMinutes: Int?
 
     static let none = RecipeTiming(activeMinutes: nil, makeAhead: nil, sameDayWaitMinutes: nil)
 }
 
 enum RecipeTimingParser {
-    /// Waits below this stay same-day; at or above it, prep moves to an
-    /// earlier date. Six hours keeps "chill for 2 hrs" on the day while
-    /// catching anything overnight.
+    /// Longer waits move prep to an earlier date.
     private static let makeAheadThresholdHours: Double = 6
 
-    /// Ordinary steps longer than this are almost always a parsing artefact.
     private static let maxActiveStepMinutes: Double = 8 * 60
 
-    /// Word-bounded so "chilli", "improve", "waterproof" and "the rest of the
-    /// oil" don't read as waiting. "marinated" is left out on purpose: "add the
-    /// marinated chicken" describes an ingredient, not a wait.
-    /// "rise", "set" and "sit" only count in their imperative forms, so "bake
-    /// until risen" stays cooking time.
+    /// Matches wait instructions while avoiding words such as "chilli" or "marinated".
     private static let waitTrigger = try! NSRegularExpression(
         pattern: #"\b(?:marinat(?:e|es|ing)|marinade|refrigerat\w*|fridge|chill(?:s|ed|ing)?|soak(?:s|ed|ing)?|brin(?:e|es|ed|ing)|freez(?:e|es|ing)|frozen|overnight|prov(?:e|es|ed|ing)|proof(?:s|ed|ing)?|cure|curing|(?:rest|stand|cool|rise|set|sit)\s+for|(?:to|let\s+\w+(?:\s+\w+)?)\s+(?:rest|stand|cool|rise|set|sit)|keep\s+for|ahead|in\s+advance|the\s+(?:night|day)\s+before)\b"#,
         options: [.caseInsensitive]
     )
 
-    /// "keep for at least 2 days before cutting" is maturing a cake, which
-    /// looks like storage advice but is actually a requirement.
+    /// Separates required maturing time from ordinary storage advice.
     private static let maturingPhrasing = try! NSRegularExpression(
         pattern: #"\b(?:at\s+least|minimum\s+of|before\s+(?:cutting|eating|slicing))\b"#,
         options: [.caseInsensitive]
     )
 
-    /// "at least 12 hrs, or ideally 24" — the minimum is a hard requirement
-    /// even though the sentence also offers an optional extension.
     private static let statedMinimum = try! NSRegularExpression(
         pattern: #"\b(?:at\s+least|a\s+least|minimum\s+of)\b"#, options: [.caseInsensitive]
     )
 
-    /// Storage advice ("keeps in the fridge for up to 3 days", "to defrost,
-    /// thaw overnight") is about leftovers, not about when to start cooking.
+    /// Storage and thawing notes should not create prep reminders.
     private static let storagePhrasing = try! NSRegularExpression(
         pattern: #"\b(?:stor(?:e|ed|ing|age)|kept|keeps?\s+(?:in|for|well)|will\s+keep|will\s+last|lasts?\s+(?:for|up)|leftovers?|airtight|stash|within|to\s+(?:defrost|thaw))\b"#,
         options: [.caseInsensitive]
     )
 
-    /// "can be prepared up to a day ahead and kept in the fridge" mentions
-    /// keeping, but it's make-ahead advice rather than storage.
     private static let advancePhrasing = try! NSRegularExpression(
         pattern: #"\b(?:ahead|in\s+advance|the\s+day\s+before)\b"#, options: [.caseInsensitive]
     )
 
-    /// Serving notes ("Serve… save some for overnight") never schedule prep.
     private static let servingSentence = try! NSRegularExpression(
         pattern: #"^\W*serv(?:e|ing)\b"#, options: [.caseInsensitive]
     )
 
-    /// Alternative methods ("You can also use a slow cooker (4 hr)") describe
-    /// a different route, so their times mustn't be added to the main one.
+    /// Do not add timings from alternative cooking methods.
     private static let alternativeMethod = try! NSRegularExpression(
         pattern: #"\b(?:alternatively|another\s+(?:method|option|way)|you\s+can\s+also|or\s+you\s+can|instead|if\s+using)\b"#,
         options: [.caseInsensitive]
@@ -92,7 +67,7 @@ enum RecipeTimingParser {
         pattern: #"\bup\s+to\s*$"#, options: [.caseInsensitive]
     )
 
-    /// "twice a day", "every 2 hours" are frequencies, not durations.
+    /// Matches frequencies such as "every 2 hours".
     private static let frequencyPrefix = try! NSRegularExpression(
         pattern: #"\b(?:once|twice|thrice|times|every|per|each)\s*$"#, options: [.caseInsensitive]
     )
@@ -106,8 +81,7 @@ enum RecipeTimingParser {
         ("½", ".5"), ("¼", ".25"), ("¾", ".75"), ("⅓", ".33"), ("⅔", ".67")
     ]
 
-    /// Optional leading range ("4-8", "4 to 8"), then a number or number-word,
-    /// then a unit.
+    /// Matches a duration or range followed by a time unit.
     private static let durationPattern = try! NSRegularExpression(
         pattern: #"(?:(\d+(?:\.\d+)?)\s*(?:-|–|to)\s*)?(?:(\d+(?:\.\d+)?)|\b(a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|couple|few)\b)\s*(?:of\s+)?(minute|min|hour|hr|day|week)s?\b"#,
         options: [.caseInsensitive]
@@ -123,7 +97,7 @@ enum RecipeTimingParser {
         "eleven": 11, "twelve": 12, "couple": 2, "few": 3
     ]
 
-    /// Phrasings the unit regex can't express, rewritten into plain minutes first.
+    /// Rewrites common phrases before duration matching.
     private static let rewrites: [(NSRegularExpression, String)] = [
         (try! NSRegularExpression(pattern: #"\b(?:an|one)\s+hour\s+and\s+a\s+half\b"#, options: [.caseInsensitive]), "90 minutes"),
         (try! NSRegularExpression(pattern: #"\bhalf\s+an?\s+hour\b"#, options: [.caseInsensitive]), "30 minutes"),
@@ -138,8 +112,7 @@ enum RecipeTimingParser {
 
     private final class Box { let value: RecipeTiming; init(_ value: RecipeTiming) { self.value = value } }
 
-    /// Parsing costs ~1 ms and the planner asks for every planned recipe on
-    /// every date redraw, so results are memoised by instruction text.
+    /// Avoids parsing the same instructions during every planner redraw.
     private static let cache = NSCache<NSString, Box>()
 
     static func analyse(_ instructions: String?) -> RecipeTiming {
@@ -170,9 +143,7 @@ enum RecipeTimingParser {
                     && !matches(maturingPhrasing, sentence)
                 guard !isStorage else { continue }
 
-                // "at least 2 hrs, or up to 12 hrs" and "4-8 hours" both state a
-                // minimum, and the minimum is what constrains when you must
-                // start. "up to 2 days" on its own is a ceiling, not a demand.
+                // Use the minimum required time; "up to" alone is only a limit.
                 let required = spans.filter { !$0.isUpperBoundOnly }
                 let isOptional = required.isEmpty
                     || (matches(optionalPhrasing, sentence) && !matches(statedMinimum, sentence))
@@ -182,8 +153,7 @@ enum RecipeTimingParser {
                 let requiredHours = requiredMinutes / 60
 
                 if requiredHours >= makeAheadThresholdHours {
-                    // A demanded head start outranks an offered one; within the
-                    // same kind, the longer lead wins.
+                    // Required prep wins over optional prep, then prefer the longer wait.
                     let current = makeAhead
                     let replaces = current == nil
                         || (current!.isOptional && !isOptional)
@@ -208,8 +178,7 @@ enum RecipeTimingParser {
 
     // MARK: - Helpers
 
-    /// Splits on line breaks and on sentence-ending punctuation followed by
-    /// whitespace, so decimals like "1.5 hours" stay intact.
+    /// Splits sentences without breaking decimal durations such as 1.5 hours.
     private static func sentences(in text: String) -> [String] {
         text.components(separatedBy: .newlines).flatMap { line -> [String] in
             var parts: [String] = []
@@ -233,7 +202,6 @@ enum RecipeTimingParser {
     private static func normalised(_ sentence: String) -> String {
         var text = sentence
         for (glyph, decimal) in unicodeFractions {
-            // "1½" → "1.5", a bare "½" → "0.5".
             text = text.replacingOccurrences(of: glyph, with: decimal)
             text = text.replacingOccurrences(of: #"(?<!\d)\#(NSRegularExpression.escapedPattern(for: decimal))"#, with: "0\(decimal)", options: .regularExpression)
         }
@@ -243,7 +211,7 @@ enum RecipeTimingParser {
             )
         }
 
-        // "1 hour 30 minutes" is one duration, not a range of 60 and 30.
+        // Combine hours and minutes before scanning individual durations.
         let range = NSRange(text.startIndex..., in: text)
         for match in compoundHoursMinutes.matches(in: text, range: range).reversed() {
             guard
@@ -258,8 +226,7 @@ enum RecipeTimingParser {
 
     private typealias Span = (low: Double, high: Double, isUpperBoundOnly: Bool)
 
-    /// Every duration in a sentence as a span in minutes. A plain "20 minutes"
-    /// has low == high; "up to 2 days" is flagged as a ceiling only.
+    /// Returns minute ranges and marks values that are only upper limits.
     private static func durations(in sentence: String) -> [Span] {
         let text = normalised(sentence)
         var result: [Span] = []

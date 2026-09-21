@@ -1,11 +1,9 @@
 import Foundation
 import SwiftData
 
-/// A recipe the user has favorited. Stores a full copy of the recipe data so
-/// the Saved tab and Meal Planner work with no network connection.
+/// A favourite recipe stored for offline use and meal planning.
 @Model
 final class SavedRecipe: StoredPhoto {
-    /// Prevents the same meal being favorited twice.
     #Unique<SavedRecipe>([\.mealID])
 
     var mealID: String = ""
@@ -16,18 +14,13 @@ final class SavedRecipe: StoredPhoto {
     var instructions: String?
     var ingredients: [Ingredient] = []
     var savedAt: Date = Date()
-    /// The photo itself, so the Saved tab and planner keep their images with
-    /// no connection. TheMealDB sends no cache headers, so URLCache alone
-    /// can't be relied on for that. Kept outside the SQLite file.
     @Attribute(.externalStorage) var imageData: Data?
 
-    /// Deleting a saved recipe removes any day it was planned for, so the
-    /// planner falls back to its empty state instead of holding a dead reference.
+    /// Removing a favourite also removes its meal-plan entries.
     @Relationship(deleteRule: .cascade, inverse: \PlannedMeal.recipe)
     var plannedMeals: [PlannedMeal] = []
 
-    /// How many *days* the recipe appears on, which is what the unsave warning
-    /// talks about. A day can hold it more than once.
+    /// Counts unique dates because a recipe may appear more than once in one day.
     var plannedDayCount: Int {
         Set(plannedMeals.map(\.date)).count
     }
@@ -69,16 +62,12 @@ final class SavedRecipe: StoredPhoto {
         return URL(string: thumbnailURLString)
     }
 
-    /// Smaller image variant, for grid cards and planner rows.
     var gridThumbnailURL: URL? {
         thumbnailURL?.appendingPathComponent("preview")
     }
 
-    /// The full photo: a saved recipe also fills the detail screen's hero.
     var photoURL: URL? { thumbnailURL }
 
-    /// Lets the Detail screen render a saved recipe offline using the same
-    /// view it uses for API results.
     var asMeal: Meal {
         Meal(
             id: mealID,

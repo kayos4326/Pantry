@@ -1,23 +1,14 @@
 import Foundation
 
-/// The last successful JSON response for each endpoint, written to disk so the
-/// app can still show recipes with no connection. TheMealDB sends no cache
-/// headers, so `URLCache` never keeps these — they're stored deliberately.
-///
-/// This lives in Caches/, which the system may purge when storage runs low.
-/// That's the right trade for a convenience copy: losing it costs one refresh,
-/// while saved recipes and plans live in SwiftData and are never at risk.
+/// Stores recent API responses in the system cache directory for offline use.
 actor ResponseCache {
     struct Entry: Equatable {
         let data: Data
-        /// When the response was written, so the UI can say how old it is.
         let storedAt: Date
     }
 
     static let shared: ResponseCache = {
-        // UI tests get a directory of their own, so a test run never reads or
-        // overwrites the offline copy the app itself is relying on — the same
-        // promise `PantryModelContainer` makes about saved recipes.
+        // Keep UI test data separate from the normal app cache.
         let isUITesting = ProcessInfo.processInfo.arguments.contains("-ui-testing")
         return ResponseCache(
             directory: URL.cachesDirectory.appending(
@@ -28,8 +19,6 @@ actor ResponseCache {
     }()
 
     private let directory: URL
-    /// Room for the default feed, every category, and a long run of searches
-    /// and recipes. Past this the least recently written file is dropped.
     private let limit: Int
     private let fileManager = FileManager.default
 
@@ -44,8 +33,7 @@ actor ResponseCache {
             try data.write(to: url(for: key), options: .atomic)
             prune()
         } catch {
-            // The request itself already succeeded; failing to keep a copy of
-            // it is never a reason to fail the call.
+            // A cache failure should not turn a successful request into an error.
         }
     }
 
@@ -60,8 +48,7 @@ actor ResponseCache {
         try? fileManager.removeItem(at: directory)
     }
 
-    /// One file per endpoint. Base64 keeps every character legal in a filename
-    /// and keeps distinct keys distinct; the keys are short, so the names are.
+    /// Base64 gives each cache key a safe, unique filename.
     private func url(for key: String) -> URL {
         let name = Data(key.utf8).base64EncodedString()
             .replacingOccurrences(of: "/", with: "_")

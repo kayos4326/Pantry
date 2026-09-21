@@ -72,21 +72,17 @@ struct PrepScheduleTests {
         let today = day(9, 17)
         #expect(label(meal: day(9, 18), viewing: today, today: today) == "tomorrow")
         #expect(label(meal: day(9, 17), viewing: today, today: today) == "today")
-        // Further out than a day either way, the date itself is clearer.
+        // Use the date when a relative label would be unclear.
         #expect(label(meal: day(9, 20), viewing: today, today: today).contains("20"))
     }
 
     @Test("Viewing another day never words the meal relative to now")
     func labelAbsoluteWhileViewingAnotherDay() {
-        // The case from the planner: looking back at Tuesday on a Thursday, a
-        // Wednesday meal is the day after the one on screen — calling it
-        // "yesterday" read as prep for a meal that had already happened.
+        // Relative labels are based on today, not the selected planner date.
         let wording = label(meal: day(9, 16), viewing: day(9, 15), today: day(9, 17))
         #expect(wording.contains("16"))
         #expect(!["today", "tomorrow", "yesterday"].contains(wording))
 
-        // Same on a future day, where "tomorrow" would be measured from now
-        // rather than from the day being viewed.
         let future = label(meal: day(9, 25), viewing: day(9, 24), today: day(9, 17))
         #expect(future.contains("25"))
         #expect(!["today", "tomorrow", "yesterday"].contains(future))

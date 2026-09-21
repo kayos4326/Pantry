@@ -1,14 +1,9 @@
 import Foundation
 import SwiftData
 
-/// A recipe the user has opened, kept so Browse has something of theirs to
-/// show the moment the app launches — before, or without, any network call.
-///
-/// It keeps the whole recipe, not just the card, so a recipe that's been
-/// opened once opens again with no connection whether or not it was saved.
+/// A recently opened recipe that can be shown again without a network request.
 @Model
 final class RecentRecipe: StoredPhoto {
-    /// One row per recipe, however many times it's opened.
     #Unique<RecentRecipe>([\.mealID])
 
     var mealID: String = ""
@@ -21,8 +16,6 @@ final class RecentRecipe: StoredPhoto {
     var viewedAt: Date = Date()
     @Attribute(.externalStorage) var imageData: Data?
 
-    /// Enough to fill the strip a few times over without the list becoming a
-    /// history nobody scrolls through.
     static let limit = 12
 
     init(
@@ -62,17 +55,13 @@ final class RecentRecipe: StoredPhoto {
         return URL(string: thumbnailURLString)
     }
 
-    /// Smaller image variant, matching the grid cards.
     var gridThumbnailURL: URL? {
         thumbnailURL?.appendingPathComponent("preview")
     }
 
-    /// Only the ~9 KB preview is kept: a recent recipe is never shown larger
-    /// than a thumbnail, and up to a dozen of them are held at once.
+    /// Recent items only need the smaller image used in the browse strip.
     var photoURL: URL? { gridThumbnailURL }
 
-    /// Complete once the recipe has been opened with a connection, which is
-    /// what lets the detail screen render it again offline.
     var asMeal: Meal {
         Meal(
             id: mealID,
@@ -85,8 +74,7 @@ final class RecentRecipe: StoredPhoto {
         )
     }
 
-    /// Records a visit: one row per recipe, moved to the front on a repeat
-    /// visit, with the list trimmed to `limit`.
+    /// Adds or updates a visit, then trims the oldest items.
     @MainActor
     @discardableResult
     static func record(_ meal: Meal, in context: ModelContext, limit: Int = limit) -> RecentRecipe {
@@ -98,9 +86,7 @@ final class RecentRecipe: StoredPhoto {
         let recent: RecentRecipe
         if let existing {
             existing.viewedAt = .now
-            // A visit recorded while offline, or from a category card, can be
-            // missing pieces the next visit has, so later visits fill them in
-            // rather than overwriting good data with blanks.
+            // Fill missing details without replacing useful data with nil values.
             existing.name = meal.name
             if let category = meal.category { existing.category = category }
             if let area = meal.area { existing.area = area }

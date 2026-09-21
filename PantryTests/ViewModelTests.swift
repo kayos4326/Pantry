@@ -446,8 +446,7 @@ extension NetworkBacked {
             await recent.storeImageIfNeeded(using: network)
 
             #expect(recent.imageData == bytes)
-            // /preview is the ~9 KB variant; the full photo is ~113 KB and a
-            // dozen of those would be kept at once.
+            // Recent recipes store the smaller preview image.
             #expect(StubURLProtocol.requests.first?.url?.absoluteString == "https://example.com/7.jpg/preview")
         }
 

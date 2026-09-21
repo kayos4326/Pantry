@@ -2,8 +2,7 @@ import Foundation
 @testable import Pantry
 
 enum Fixtures {
-    /// A full meal as search.php / lookup.php return it, including blank and
-    /// whitespace-only ingredient slots and a lowercase ingredient name.
+    /// Full API response with edge cases for ingredient parsing.
     static func fullMealJSON(
         id: String = "52795",
         name: String = "Chicken Handi",

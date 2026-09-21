@@ -1,23 +1,15 @@
 import Foundation
 
-/// Thin wrapper around TheMealDB's JSON API using async/await URLSession.
-///
-/// Every successful response is also written to `ResponseCache`, and each
-/// endpoint has a matching `cached…` reader. Callers decide when to fall back
-/// to that copy, which is what keeps Browse and Detail usable offline.
+/// Handles TheMealDB requests and stores successful responses for offline use.
 final class NetworkManager {
     static let shared = NetworkManager()
 
-    /// A value read back from the offline copy, with the time it was stored so
-    /// the UI can say how old it is.
     struct Cached<Value> {
         let value: Value
         let storedAt: Date
     }
 
-    /// The four endpoints the app uses, each carrying the key its offline copy
-    /// is filed under. Keeping the URL and the key together means a cached
-    /// response can never be filed against the wrong request.
+    /// Keeps each API request and its cache key together.
     enum Endpoint: Equatable {
         case search(String)
         case filter(category: String)
@@ -55,8 +47,7 @@ final class NetworkManager {
     private let baseURL = URL(string: "https://www.themealdb.com/api/json/v1/1/")!
     private let session: URLSession
     private let cache: ResponseCache
-    /// URLSession's default is 60 s, which leaves a dead connection showing
-    /// a skeleton for a full minute before any error appears.
+    /// Fails quickly enough to show an offline state instead of a long spinner.
     private let requestTimeout: TimeInterval = 15
 
     init(session: URLSession = .shared, cache: ResponseCache = .shared) {
@@ -98,7 +89,6 @@ final class NetworkManager {
         return meal
     }
 
-    /// Raw bytes for a recipe photo, so saved recipes keep their images offline.
     func imageData(from url: URL) async throws -> Data {
         let data = try await fetch(url)
         guard !data.isEmpty else { throw NetworkError.emptyResults }
@@ -107,8 +97,6 @@ final class NetworkManager {
 
     // MARK: - Offline copies
 
-    /// Results from the last successful request for the same search, if there
-    /// was one. `nil` means there's nothing to show but the error.
     func cachedMeals(search query: String) async -> Cached<[Meal]>? {
         await cachedMeals(.search(query))
     }
@@ -125,8 +113,6 @@ final class NetworkManager {
         return Cached(value: cached.value.categories, storedAt: cached.storedAt)
     }
 
-    /// The last copy of a full recipe, which lets a recently viewed recipe
-    /// open with no connection even when it was never saved.
     func cachedMeal(id: String) async -> Cached<Meal>? {
         guard
             let cached: Cached<MealResponse> = await cachedValue(.lookup(id: id)),
@@ -163,8 +149,7 @@ final class NetworkManager {
             throw NetworkError.decodingFailed
         }
 
-        // Only what decoded cleanly is kept, so the offline copy can never be
-        // worse than what the app just displayed.
+        // Cache only data that decoded successfully.
         await cache.store(data, for: endpoint.cacheKey)
         return value
     }
@@ -193,7 +178,7 @@ final class NetworkManager {
         } catch let urlError as URLError {
             switch urlError.code {
             case .cancelled:
-                // A debounced search superseded this request — not a real failure.
+                // A newer search replaced this one.
                 throw CancellationError()
             case .notConnectedToInternet, .networkConnectionLost, .timedOut, .cannotFindHost,
                  .cannotConnectToHost, .dnsLookupFailed, .dataNotAllowed, .internationalRoamingOff:

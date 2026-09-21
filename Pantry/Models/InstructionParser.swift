@@ -1,18 +1,13 @@
 import Foundation
 
 enum InstructionLine: Hashable {
-    /// A sub-heading inside the method, e.g. "For the sauce" or "Pro tips".
     case header(String)
     case step(String)
 }
 
-/// Turns strInstructions into clean steps. Across the full TheMealDB catalogue
-/// roughly a third of recipes contain bare "STEP 1" / "1" marker lines, many
-/// prefix their own "1." numbering, some are a single paragraph, and a few use
-/// section headings — all of which would otherwise render as numbered steps.
+/// Cleans TheMealDB instructions into headings and numbered steps.
 enum InstructionParser {
-    /// Longer than this with no line breaks is treated as a run-on paragraph
-    /// and split into sentences.
+    /// Split long single-paragraph instructions into separate steps.
     private static let paragraphSplitThreshold = 250
 
     private static let markerOnly = try! NSRegularExpression(
@@ -25,7 +20,6 @@ enum InstructionParser {
         pattern: #"(?<=[.!?])\s+(?=[A-Z0-9"“(])"#
     )
 
-    /// Headings that only restate the section the app already labels "Steps".
     private static let redundantHeadings: Set<String> = [
         "instructions", "method", "directions", "steps", "preparation instructions"
     ]
@@ -54,12 +48,12 @@ enum InstructionParser {
             var line = rawLine
                 .replacingOccurrences(of: "**", with: "")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
-            // A markdown "## Heading" is a heading whatever its wording.
+            // Preserve headings supplied in Markdown-style instructions.
             let isMarkdownHeading = line.hasPrefix("#")
             while line.hasPrefix("#") { line.removeFirst() }
             line = line.trimmingCharacters(in: .whitespaces)
 
-            // Decorative glyphs such as ▢ on their own line.
+            // Ignore lines that contain only decoration.
             guard line.rangeOfCharacter(from: .alphanumerics) != nil else { continue }
             guard !matches(markerOnly, line) else { continue }
 

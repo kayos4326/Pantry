@@ -1,8 +1,6 @@
 import Foundation
 
-/// A recipe returned by TheMealDB. Different endpoints return different
-/// subsets of these fields (e.g. filter.php only gives id/name/thumbnail),
-/// so every field besides `id` and `name` is optional.
+/// A recipe from TheMealDB. List endpoints return fewer fields than lookup.
 struct Meal: Identifiable, Hashable, Decodable {
     let id: String
     let name: String
@@ -25,7 +23,7 @@ struct Meal: Identifiable, Hashable, Decodable {
         case youtubeURL = "strYoutube"
     }
 
-    /// Keys for the 20 numbered ingredient/measure pairs, e.g. "strIngredient1", "strMeasure1".
+    /// Reads numbered fields such as `strIngredient1` and `strMeasure1`.
     private struct DynamicKey: CodingKey {
         var stringValue: String
         var intValue: Int?
@@ -37,8 +35,7 @@ struct Meal: Identifiable, Hashable, Decodable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(String.self, forKey: .id)
         name = try container.decode(String.self, forKey: .name)
-        // Decoded leniently: TheMealDB is crowd-sourced, and one malformed
-        // image URL would otherwise fail decoding for an entire result list.
+        // A bad image URL should not make the whole recipe fail to decode.
         let thumbnailString = try? container.decodeIfPresent(String.self, forKey: .thumbnailURL)
         thumbnailURL = thumbnailString.flatMap { URL(string: $0) }
         category = try container.decodeIfPresent(String.self, forKey: .category)
@@ -73,8 +70,6 @@ struct Meal: Identifiable, Hashable, Decodable {
         self.ingredients = ingredients
     }
 
-    /// Walks strIngredient1...20 / strMeasure1...20, skipping any pair where
-    /// the ingredient name is missing, empty, or whitespace-only.
     private static func parseIngredients(from container: KeyedDecodingContainer<DynamicKey>) -> [Ingredient] {
         var result: [Ingredient] = []
         for index in 1...20 {
@@ -90,27 +85,23 @@ struct Meal: Identifiable, Hashable, Decodable {
                 continue
             }
             let measure = rawMeasure?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            // ~300 ingredient names in the catalogue start lowercase ("garlic"),
-            // which looks inconsistent next to "Garlic" in the same list.
+            // Keep ingredient names visually consistent.
             let displayName = name.prefix(1).uppercased() + name.dropFirst()
             result.append(Ingredient(id: index, name: displayName, measure: measure))
         }
         return result
     }
 
-    /// TheMealDB serves a ~9KB thumbnail alongside the ~112KB full image.
-    /// Used in grids so scrolling doesn't pull down full-size photos.
+    /// Uses TheMealDB's smaller image in scrolling lists.
     var gridThumbnailURL: URL? {
         thumbnailURL?.appendingPathComponent("preview")
     }
 
-    /// filter.php returns meals without instructions or ingredients, so the
-    /// detail screen uses this to decide whether it needs to re-fetch by id.
+    /// Category results must be fetched again before showing recipe details.
     var isFullyLoaded: Bool {
         !(instructions ?? "").isEmpty && !ingredients.isEmpty
     }
 
-    /// strTags is a comma-separated string when present, e.g. "Spicy,Curry".
     var tagList: [String] {
         (tags ?? "")
             .split(separator: ",")
@@ -118,7 +109,6 @@ struct Meal: Identifiable, Hashable, Decodable {
             .filter { !$0.isEmpty }
     }
 
-    /// Steps interleaved with any sub-headings, ready for display.
     var instructionLines: [InstructionLine] {
         InstructionParser.lines(from: instructions)
     }
@@ -131,8 +121,7 @@ struct Meal: Identifiable, Hashable, Decodable {
     }
 }
 
-/// search.php, filter.php, and lookup.php all wrap results in a top-level
-/// "meals" key, which is `null` (not an empty array) when there are no matches.
+/// The API returns `meals: null` when no recipes match.
 struct MealResponse: Decodable {
     let meals: [Meal]?
 }

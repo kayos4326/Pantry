@@ -1,9 +1,7 @@
 import SwiftUI
 import SwiftData
 
-/// Horizontal row of recipes the user has opened before, shown at the top of
-/// Browse. It reads straight from SwiftData, so it's on screen immediately at
-/// launch — including with no connection, since each row keeps its own photo.
+/// Recently opened recipes loaded directly from SwiftData.
 struct RecentlyViewedStrip: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \RecentRecipe.viewedAt, order: .reverse) private var recents: [RecentRecipe]
@@ -24,9 +22,7 @@ struct RecentlyViewedStrip: View {
                         Text("Clear")
                             .font(Typeface.mono(10, weight: .semibold))
                             .foregroundStyle(Theme.textMuted)
-                            // Grow the touch target past 44 pt, claim it as the
-                            // hit area, then give the space back to the layout
-                            // so the label stays on the heading's baseline.
+                            // Keep a 44-point touch target without moving the label.
                             .padding(16)
                             .contentShape(Rectangle())
                             .padding(-16)
@@ -47,8 +43,7 @@ struct RecentlyViewedStrip: View {
                     }
                     .padding(.horizontal, 20)
                 }
-                // Bleed to the screen edges so the row scrolls out past the
-                // page padding, then restore the inset, as the chip row does.
+                // Allow cards to scroll to the screen edges.
                 .padding(.horizontal, -20)
             }
         }

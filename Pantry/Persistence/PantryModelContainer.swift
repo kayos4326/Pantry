@@ -6,11 +6,9 @@ enum PantryModelContainer {
     static let schema = Schema([SavedRecipe.self, PlannedMeal.self, RecentRecipe.self])
     private static let logger = Logger(subsystem: "com.pantry.app.Pantry", category: "Persistence")
 
-    /// Opens the app's store without ever deleting or replacing it on failure.
-    /// The caller decides how to present an unavailable store to the user.
+    /// Opens the store without deleting existing data if it fails.
     static func makeShared() -> Result<ModelContainer, Error> {
-        // UI tests launch with this flag so they start empty and never read or
-        // overwrite the recipes and plans saved on the device.
+        // UI tests use an empty in-memory store.
         let isUITesting = ProcessInfo.processInfo.arguments.contains("-ui-testing")
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: isUITesting)
         let result = make(configuration: configuration)
@@ -20,16 +18,14 @@ enum PantryModelContainer {
         return result
     }
 
-    /// Kept separate so the failure path can be tested with an unavailable
-    /// location. Returning the error preserves the original store and avoids
-    /// silently switching to an in-memory database that would lose new saves.
+    /// Exposed separately so store-opening failures can be tested.
     static func make(configuration: ModelConfiguration) -> Result<ModelContainer, Error> {
         Result {
             try ModelContainer(for: schema, configurations: [configuration])
         }
     }
 
-    /// In-memory container seeded with sample data, for SwiftUI previews.
+    /// Sample data for SwiftUI previews.
     @MainActor
     static let preview: ModelContainer = {
         let container = try! ModelContainer(

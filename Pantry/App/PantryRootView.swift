@@ -1,7 +1,6 @@
 import SwiftData
 import SwiftUI
 
-/// Opens the persistent store and lets the user retry a failure.
 struct PantryRootView: View {
     @State private var storage: Result<ModelContainer, Error>
 
@@ -25,7 +24,6 @@ struct PantryRootView: View {
     }
 }
 
-/// Explains that a store-opening failure did not remove existing data.
 private struct StorageUnavailableView: View {
     let retry: () -> Void
 

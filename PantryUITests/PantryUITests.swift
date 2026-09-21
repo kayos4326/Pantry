@@ -1,8 +1,6 @@
 import XCTest
 
-/// End-to-end flows and Apple's automated accessibility audit, run against the
-/// real app and live TheMealDB. The app is launched with `-ui-testing`, which
-/// gives it an empty in-memory store, so nothing saved on the device is touched.
+/// Main user flows and accessibility checks using an isolated in-memory store.
 final class PantryUITests: XCTestCase {
     private var app: XCUIApplication!
 
@@ -101,11 +99,10 @@ final class PantryUITests: XCTestCase {
             XCTAssertEqual(planned.count, expectedCount)
         }
 
-        // The second meal is added, not swapped in for the first.
+        // A day can contain more than one meal.
         XCTAssertEqual(app.buttons.matching(identifier: "planner.plannedRecipe").count, 2)
         try audit("Planner with two meals")
 
-        // Removing one leaves the other.
         app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Change '")).firstMatch.tap()
         let remove = app.buttons["Remove this meal"]
         XCTAssertTrue(remove.waitForExistence(timeout: 5))
@@ -141,15 +138,13 @@ final class PantryUITests: XCTestCase {
 
         let recent = app.buttons.matching(identifier: "browse.recentCard").firstMatch
         XCTAssertTrue(recent.waitForExistence(timeout: 10), "Opening a recipe didn't add it to Recently viewed")
-        // The card's label is the recipe name; the grid card's also carries its
-        // area, so the grid label contains the strip's.
+        // The recent card shares its recipe name with the browse card.
         XCTAssertFalse(recent.label.isEmpty)
         XCTAssertTrue(
             openedName.localizedCaseInsensitiveContains(recent.label),
             "Recently viewed shows '\(recent.label)' after opening '\(openedName)'"
         )
 
-        // The strip is only on screen here, so this is where it gets audited.
         try audit("Browse with recents")
 
         recent.tap()
@@ -158,8 +153,7 @@ final class PantryUITests: XCTestCase {
 
     // MARK: - Dynamic Type
 
-    /// Heights of representative text at the current launch size, one per
-    /// typeface and text-style curve the app uses.
+    /// Measures one example for each font and scaling curve used by the app.
     private func measureText() -> [String: CGFloat] {
         var heights: [String: CGFloat] = [:]
         let browseTitle = app.staticTexts["Browse"]
@@ -190,55 +184,38 @@ final class PantryUITests: XCTestCase {
             let grown = try XCTUnwrap(large[name])
             print("DYNAMIC-TYPE \(name): \(height) pt -> \(grown) pt (\(String(format: "%.2f", grown / height))x)")
             XCTAssertGreaterThan(height, 0, "\(name) wasn't measured")
-            // Fixed text would measure 1.0×; containers with fixed padding
-            // grow less than their text, so 1.2× is proof of scaling.
+            // Fixed text would stay at 1.0x, so 1.2x confirms scaling.
             XCTAssertGreaterThan(grown, height * 1.2, "\(name) didn't grow with Dynamic Type")
         }
     }
 
     // MARK: - Accessibility audits
 
-    /// Fails the test on any accessibility issue, with two documented
-    /// exceptions:
-    /// - Text scrolled beneath the translucent floating tab bar is measured
-    ///   against the blurred material rather than its real background, which
-    ///   reports contrast failures the user never sees.
-    /// - The Dynamic Type heuristic reports "partially unsupported" for a
-    ///   different `Font.custom` text on each run, including text it passes on
-    ///   other screens. Scaling is instead proven deterministically by
-    ///   `testCustomFontsScaleWithDynamicType`, which measures real growth.
+    /// Runs Apple's audit while filtering known false positives around
+    /// floating bars and custom-font scaling.
     private func audit(_ screen: String) throws {
         let tabBar = app.tabBars.firstMatch
         let windowHeight = app.windows.firstMatch.frame.height
-        // Scrolled-away content passes behind the status bar, where the scroll
-        // edge effect fades it. Anything sitting *entirely* above the bar's
-        // bottom is hidden by it; the screens' own headers start below.
+        // Ignore content hidden by the top scroll-edge fade.
         let statusBarBottom = app.statusBars.firstMatch.exists ? app.statusBars.firstMatch.frame.maxY : 59
-        // iOS 26's scroll edge effect fades content above the floating bar
-        // itself, so the obscured band starts 80 pt above its top edge.
+        // The bottom scroll-edge fade begins above the floating tab bar.
         let barTop = tabBar.exists ? tabBar.frame.minY : windowHeight - 90
         let obscuredRegion = CGRect(x: 0, y: barTop - 80, width: .greatestFiniteMagnitude, height: windowHeight)
 
         try app.performAccessibilityAudit(for: XCUIAccessibilityAuditType.all.subtracting(.dynamicType)) { issue in
             let element = issue.element.map { "'\($0.label)' id='\($0.identifier)' frame=\($0.frame)" } ?? "no element"
-            // Contrast and clipping can't be judged for text passing under the
-            // bar's edge fade. testAccessibilityAuditBrowse audits a second
-            // time after scrolling, so text caught in the band there is also
-            // audited in clear space.
+            // Text in the fade is checked again after scrolling into clear space.
             if [.contrast, .textClipped].contains(issue.auditType),
                let frame = issue.element?.frame, frame.intersects(obscuredRegion) {
                 print("AUDIT[\(screen)] ignored under tab bar: \(issue.compactDescription) \(element)")
                 return true
             }
-            // The same effect at the top of the scroll view.
             if [.contrast, .textClipped].contains(issue.auditType),
                let frame = issue.element?.frame, frame.maxY <= statusBarBottom {
                 print("AUDIT[\(screen)] ignored behind status bar: \(issue.compactDescription) \(element)")
                 return true
             }
-            // A prediction ("may be clipped") about the search field at larger
-            // sizes; testCustomFontsScaleWithDynamicType measures the field
-            // actually growing, which rules the clipping out.
+            // Font scaling is tested with direct size measurements above.
             if issue.auditType == .textClipped, issue.element?.identifier == "browse.search" {
                 print("AUDIT[\(screen)] ignored, disproven by measurement: \(issue.compactDescription) \(element)")
                 return true
@@ -253,7 +230,6 @@ final class PantryUITests: XCTestCase {
         waitForBrowseCard()
         try audit("Browse")
 
-        // Bring the cards that sat in the bottom band up into clear space.
         app.swipeUp(velocity: .slow)
         try audit("Browse scrolled")
     }
@@ -279,9 +255,7 @@ final class PantryUITests: XCTestCase {
         app.buttons["planner.planMeal"].tap()
         let row = app.buttons.matching(identifier: "picker.recipeRow").firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 5))
-        // At the half-height detent the dimmed planner behind the sheet is
-        // visible but deliberately inert, which the audit reports as
-        // inaccessible text. Expanding the sheet audits the sheet itself.
+        // Expand the sheet so the audit skips the inactive view behind it.
         row.swipeUp()
         try audit("Picker")
     }

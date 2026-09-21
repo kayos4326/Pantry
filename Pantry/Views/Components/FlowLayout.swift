@@ -1,7 +1,6 @@
 import SwiftUI
 
-/// Lays children out left to right, wrapping onto a new row when the next one
-/// won't fit. Keeps pill rows readable on narrow phones and at large text sizes.
+/// Wraps child views onto new rows when space runs out.
 struct FlowLayout: Layout {
     var spacing: CGFloat = 8
     var rowSpacing: CGFloat = 8
@@ -38,9 +37,7 @@ struct FlowLayout: Layout {
         var rows: [Row] = []
         var current = Row()
         for index in subviews.indices {
-            // Measured against the available width rather than unconstrained,
-            // so an item wider than the row wraps to a taller size instead of
-            // being squeezed into its one-line height and clipped.
+            // Measure against the row width so long items can wrap vertically.
             let size = subviews[index].sizeThatFits(ProposedViewSize(width: maxWidth, height: nil))
             let widthIfAdded = current.items.isEmpty ? size.width : current.width + spacing + size.width
             if widthIfAdded > maxWidth, !current.items.isEmpty {
@@ -57,8 +54,7 @@ struct FlowLayout: Layout {
 }
 
 enum DurationText {
-    /// "~45 min", "~1 h 35 min", "~8 h". Estimates are rounded to five
-    /// minutes once they pass an hour, so they don't imply false precision.
+    /// Formats approximate durations without implying exact precision.
     static func approximate(minutes: Int) -> String {
         guard minutes >= 60 else { return "~\(minutes) min" }
         let rounded = Int((Double(minutes) / 5).rounded()) * 5

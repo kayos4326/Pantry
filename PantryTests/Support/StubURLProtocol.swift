@@ -1,9 +1,7 @@
 import Foundation
 @testable import Pantry
 
-/// Intercepts every request made through a stubbed session so networking tests
-/// run offline and deterministically. The handler is shared static state, so
-/// every suite that uses it lives under the serialized `NetworkBacked` suite.
+/// Intercepts requests so network tests run offline with fixed responses.
 final class StubURLProtocol: URLProtocol {
     enum Reply {
         case json(String, status: Int = 200, delay: Duration = .zero)
@@ -26,9 +24,7 @@ final class StubURLProtocol: URLProtocol {
         return recorded
     }
 
-    /// A manager wired to the stub and, unless one is passed in, to a response
-    /// cache of its own — so no test can read or overwrite the app's real
-    /// offline copy, or another test's.
+    /// Creates a manager with an isolated response cache.
     static func makeNetworkManager(
         cache: ResponseCache? = nil,
         _ handler: @escaping (URLRequest) -> Reply

@@ -32,8 +32,7 @@ struct PersistenceTests {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
 
-        // Making the would-be parent a regular file guarantees SwiftData can't
-        // create a database beneath it. That marker must survive the failure.
+        // A regular file makes this an invalid database directory.
         let marker = root.appending(path: "keep-me")
         let original = Data("existing user data".utf8)
         try original.write(to: marker)
@@ -146,7 +145,6 @@ struct PersistenceTests {
         )
         #expect(plans.count == 2)
         #expect(plans.map { $0.recipe?.name } == ["A", "B"])
-        // Both land on the same day, so the planner shows them under one date.
         #expect(plans[0].date == plans[1].date)
     }
 
@@ -163,7 +161,6 @@ struct PersistenceTests {
         try context.save()
 
         #expect(a.plannedMeals.count == 3)
-        // What the unsave warning counts: days, not rows.
         #expect(a.plannedDayCount == 2)
     }
 
@@ -236,7 +233,6 @@ struct RecentRecipeTests {
     @Test("A visit recorded before the recipe loaded is completed by the next one")
     func partialVisitCompletedLater() throws {
         let context = try makeContext()
-        // What a card carries when the recipe itself never arrived.
         let partial = Meal(
             id: "9", name: "Beef Pie", thumbnailURL: URL(string: "https://example.com/9.jpg"),
             category: nil, area: nil, instructions: nil, ingredients: []
@@ -288,7 +284,6 @@ struct RecentRecipeTests {
     @Test("A later visit fills in details the first card didn't carry")
     func backfillsMissingDetails() throws {
         let context = try makeContext()
-        // filter.php gives a name and a thumbnail but no category.
         let fromCategoryBrowsing = Meal(
             id: "9", name: "Beef Pie", thumbnailURL: URL(string: "https://example.com/9.jpg"),
             category: nil, area: nil, instructions: nil, ingredients: []

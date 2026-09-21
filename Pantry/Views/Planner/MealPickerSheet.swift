@@ -1,17 +1,11 @@
 import SwiftUI
 import SwiftData
 
-/// Picker for adding a saved recipe to a day, or swapping one already on it.
-/// Only saved recipes can be planned, since the planner has to keep working
-/// offline.
+/// Adds or replaces a saved recipe in the meal planner.
 struct MealPickerSheet: View {
     let date: Date
-    /// The meal being replaced, when the sheet was opened from Change. Nil
-    /// while adding a meal to the day.
     let assignedRecipe: SavedRecipe?
     let onSelect: (SavedRecipe) -> Void
-    /// Only set when replacing an existing meal, which is the only case where
-    /// there's something to remove.
     let onRemove: (() -> Void)?
 
     @Query(sort: \SavedRecipe.savedAt, order: .reverse) private var savedRecipes: [SavedRecipe]
@@ -20,7 +14,6 @@ struct MealPickerSheet: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                // Clears the sheet's grabber, which was clipping the eyebrow.
                 PageHeader(eyebrow: "Plan for", title: headline)
                     .padding(.top, 28)
 
@@ -34,8 +27,6 @@ struct MealPickerSheet: View {
                         detail: "Save a recipe from Browse, then plan it here."
                     )
                 } else {
-                    // Above the list, so removing doesn't need a scroll past
-                    // every saved recipe.
                     if let onRemove {
                         removeButton(onRemove)
                             .padding(.bottom, 14)
@@ -120,8 +111,7 @@ struct MealPickerSheet: View {
         .accessibilityIdentifier("picker.recipeRow")
     }
 
-    /// Shown before choosing, so a recipe that should already be marinating
-    /// isn't picked for a date that's now too soon without warning.
+    /// Warns when a recipe needs more prep time than the selected date allows.
     private func leadBadge(_ makeAhead: MakeAheadRequirement) -> some View {
         let days = "\(makeAhead.leadDays) day\(makeAhead.leadDays == 1 ? "" : "s")"
         let tooLate: Bool = {
@@ -139,8 +129,7 @@ struct MealPickerSheet: View {
             text = "Needs \(days) ahead"
         }
 
-        // An HStack rather than a Label: Label keeps its title on one line,
-        // which truncated the warning on narrower widths.
+        // HStack allows the warning to wrap on narrow screens.
         return HStack(alignment: .firstTextBaseline, spacing: 5) {
             Image(systemName: tooLate ? "exclamationmark.octagon.fill" : "calendar.badge.clock")
                 .accessibilityHidden(true)

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Centred message used for "nothing saved yet" / "no results" style states.
+/// Shared empty-state message.
 struct EmptyStateView: View {
     let symbol: String
     let message: String
@@ -28,12 +28,9 @@ struct EmptyStateView: View {
     }
 }
 
-/// Sits above results that came from the copy on disk because the request
-/// failed, so recipes that may be out of date are never passed off as fresh.
+/// Labels results loaded from the offline response cache.
 struct OfflineNotice: View {
     let storedAt: Date
-    /// Distinguishes "no connection" from a server that answered badly; the
-    /// fallback is the same either way, only the wording changes.
     let isDisconnected: Bool
     let retry: () -> Void
 
@@ -48,8 +45,7 @@ struct OfflineNotice: View {
                 Text(isDisconnected ? "You're offline" : "Couldn't reach TheMealDB")
                     .font(Typeface.mono(11, weight: .semibold))
                     .foregroundStyle(Theme.textDark)
-                // Not "saved": that word means favourited everywhere else in
-                // the app, and these recipes haven't been.
+                // "Saved" means favourite elsewhere in the app.
                 Text("Showing recipes from \(storedAt.formatted(.relative(presentation: .named))).")
                     .font(Typeface.mono(10))
                     .foregroundStyle(Theme.textMuted)
@@ -66,7 +62,7 @@ struct OfflineNotice: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 7)
                     .background(Capsule().fill(Theme.brick))
-                    // 44 pt touch target; the capsule itself stays small.
+                    // Keep a full-size touch target around the small label.
                     .padding(.vertical, 9)
                     .contentShape(Rectangle())
             }
@@ -82,7 +78,7 @@ struct OfflineNotice: View {
     }
 }
 
-/// Error state with a retry affordance, used whenever a request fails.
+/// Shared network error with a retry action.
 struct ErrorStateView: View {
     let message: String
     let retry: () -> Void

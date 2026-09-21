@@ -2,10 +2,8 @@ import Foundation
 import Testing
 @testable import Pantry
 
-/// Contract tests against the real TheMealDB. Off by default so normal runs
-/// stay offline and deterministic. Enable from the command line with:
+/// Optional contract tests against the live TheMealDB API. Enable with:
 ///   TEST_RUNNER_PANTRY_LIVE_API=1 xcodebuild test ...
-/// or by adding PANTRY_LIVE_API=1 to the scheme's test environment.
 @Suite(
     "Live TheMealDB contract",
     .enabled(if: ProcessInfo.processInfo.environment["PANTRY_LIVE_API"] != nil),

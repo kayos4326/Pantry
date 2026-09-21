@@ -1,15 +1,12 @@
 import SwiftUI
 import UIKit
 
-/// Recipe photo that prefers bytes stored on device and falls back to the
-/// network. Fills its frame; callers size and clip it.
+/// Shows a stored photo first, then falls back to the network.
 struct RecipeImage: View {
     let url: URL?
     var storedData: Data?
-    /// Stable identity for the decoded-image cache, e.g. the meal id.
     var cacheKey: String?
-    /// Longest edge to decode stored images at. Grid cells don't need the
-    /// full-resolution bitmap in memory.
+    /// Limits decoded image size for smaller views.
     var maxPixelSize: CGFloat = 600
 
     var body: some View {
@@ -57,8 +54,7 @@ struct RecipeImage: View {
     }
 }
 
-/// Decoding a JPEG on every redraw would stutter scrolling, so decoded
-/// bitmaps are kept until memory pressure evicts them.
+/// Keeps decoded images in memory to avoid stuttering while scrolling.
 private enum DecodedImageCache {
     static let shared: NSCache<NSString, UIImage> = {
         let cache = NSCache<NSString, UIImage>()

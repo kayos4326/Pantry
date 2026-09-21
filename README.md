@@ -1,20 +1,22 @@
 # Pantry
 
-IOS Application Development (CSX4108), Assumption University.
+iOS Application Development (CSX4108), Assumption University
 
-Team: Thar Lin Htet_6642062 · Honey Linn_6726113 · Su Eain Dray Myint_6726094
+Team: Thar Lin Htet (6642062), Honey Linn (6726113), Su Eain Dray Myint (6726094)
 
-Pantry is an iOS 18 recipe browser and meal planner built with SwiftUI, SwiftData, and TheMealDB. It supports live search, category browsing, saved recipes, recently viewed recipes, offline images and API responses, and several planned meals per day.
+Pantry is our recipe browser and meal planner for iOS 18. It uses [TheMealDB](https://www.themealdb.com) for recipe data and SwiftData for anything the user saves on the device.
+
+You can browse or search for recipes, open full cooking instructions, save favourites, and plan several meals for a day. Saved and recently viewed recipes keep enough information to remain useful without a connection.
 
 ## Requirements
 
-- macOS with a recent Xcode version that supports iOS 18
+- Xcode with the iOS 18 SDK or newer
 - An iPhone Simulator or a signed physical device
 - Internet access for the first recipe download
 
 No API key or third-party package installation is required.
 
-## Run the app
+## Getting started
 
 1. Open `Pantry.xcodeproj`.
 2. Select an iPhone or iPad simulator.
@@ -22,22 +24,22 @@ No API key or third-party package installation is required.
 
 For a physical device, choose your Apple development team and use a unique bundle identifier if Xcode requests one.
 
-## Architecture
+## Project structure
 
-| Layer | Responsibility |
-| --- | --- |
-| `App` | Application startup and persistent-store recovery |
-| `Views` | SwiftUI screens and reusable visual components |
-| `ViewModels` | Browse and recipe-detail state transitions |
-| `Network` | TheMealDB requests, decoding, errors, and response caching |
-| `Models` | API data, instruction parsing, timing, and prep scheduling |
-| `Persistence` | SwiftData models for saved, recent, and planned recipes |
+- `App` starts the app and opens the SwiftData store.
+- `Views` contains the screens and reusable SwiftUI components.
+- `ViewModels` manages loading and screen state.
+- `Network` calls TheMealDB and keeps a small response cache for offline use.
+- `Models` contains API models and the recipe parsing logic.
+- `Persistence` stores favourites, recent recipes, and meal plans.
 
-The app never replaces the persistent store after an opening failure. It preserves existing data, logs the error, and presents a retry screen.
+If the saved-data store cannot open, Pantry shows a retry screen and leaves the existing data untouched.
 
 ## Tests
 
-Run the unit and UI suites:
+The project includes unit tests for networking, parsing, scheduling, and persistence, plus UI tests for the main user flows.
+
+To run all tests from Terminal:
 
 ```sh
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
@@ -47,7 +49,7 @@ xcodebuild test \
   -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest'
 ```
 
-The UI tests use an isolated in-memory SwiftData store. Live TheMealDB contract tests are disabled by default; enable them with:
+UI tests use a separate in-memory store, so they cannot change normal app data. The live API checks are off by default because they require a network connection. To include them:
 
 ```sh
 TEST_RUNNER_PANTRY_LIVE_API=1 xcodebuild test \
@@ -56,9 +58,9 @@ TEST_RUNNER_PANTRY_LIVE_API=1 xcodebuild test \
   -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest'
 ```
 
-## Regenerate the project
+## XcodeGen
 
-The checked-in Xcode project is generated from `project.yml` using XcodeGen:
+The Xcode project is already included. If you have XcodeGen installed, you can regenerate it after changing `project.yml`:
 
 ```sh
 xcodegen generate

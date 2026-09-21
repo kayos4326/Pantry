@@ -1,8 +1,7 @@
 import SwiftUI
 
 enum RecipeGrid {
-    /// Two columns on iPhone; iPad widens to more without any extra code.
-    /// At accessibility text sizes a card needs the full width to stay legible.
+    /// Uses full-width cards at accessibility text sizes.
     static func columns(for typeSize: DynamicTypeSize) -> [GridItem] {
         typeSize.isAccessibilitySize
             ? [GridItem(.flexible(), spacing: spacing)]
@@ -14,10 +13,8 @@ enum RecipeGrid {
 
 struct RecipeCardView: View {
     let meal: Meal
-    /// filter.php omits strCategory, so the browsing category is passed in to
-    /// stop the card falling back to the area and printing it twice.
+    /// Category supplied by the browse screen when the API omits it.
     var categoryFallback: String?
-    /// Photo bytes kept on device for saved recipes.
     var storedImageData: Data?
 
     private var subtitle: String? {
@@ -26,9 +23,7 @@ struct RecipeCardView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // A ZStack rather than an overlay: overlays can't affect layout,
-            // so an enlarged badge could only clip. Here the photo area grows
-            // if the badge ever needs more room than the photo gives it.
+            // Let the photo area grow if a large category label needs more room.
             ZStack(alignment: .bottomLeading) {
                 Color.clear
                     .aspectRatio(1.55, contentMode: .fit)
@@ -44,10 +39,7 @@ struct RecipeCardView: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
-                        // Opaque rather than a scrim: at 55% black the badge's
-                        // contrast depended on the photo behind it, and pale
-                        // pictures failed the contrast audit on some runs.
-                        // Charcoal is a fixed 15:1 against the white text.
+                        // A fixed background keeps the label readable on every photo.
                         .background(Capsule().fill(Theme.charcoal))
                         .padding(8)
                 }
@@ -76,8 +68,7 @@ struct RecipeCardView: View {
     }
 }
 
-/// Loading placeholder that mirrors the card's layout so the grid doesn't
-/// jump when real content arrives.
+/// Loading placeholder sized like a recipe card.
 struct RecipeCardSkeleton: View {
     var body: some View {
         VStack(spacing: 0) {

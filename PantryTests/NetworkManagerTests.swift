@@ -2,8 +2,7 @@ import Foundation
 import Testing
 @testable import Pantry
 
-/// Every suite that drives the shared URL stub is nested here so they never
-/// run concurrently with one another.
+/// Serialises tests that share the URL stub.
 @Suite("Network-backed", .serialized)
 struct NetworkBacked {}
 
@@ -196,8 +195,7 @@ extension NetworkBacked {
 
             let cached = try #require(await network.cachedMeals(search: "chicken"))
             #expect(cached.value.map(\.name) == ["Chicken Handi"])
-            // Ingredients survive the round trip, so the copy is as complete
-            // as what was on screen.
+            // The cached recipe should remain complete.
             #expect(cached.value.first?.ingredients.map(\.name) == ["Chicken", "Onion", "Garlic"])
             #expect(abs(cached.storedAt.timeIntervalSinceNow) < 10)
         }
