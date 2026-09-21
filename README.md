@@ -1,5 +1,9 @@
 # Pantry
 
+IOS Application Development (CSX4108), Assumption University.
+
+Team: Thar Lin Htet · Honey Linn · Su Eain Dray Myint
+
 Pantry is an iOS 18 recipe browser and meal planner built with SwiftUI, SwiftData, and TheMealDB. It supports live search, category browsing, saved recipes, recently viewed recipes, offline images and API responses, and several planned meals per day.
 
 ## Requirements
