@@ -35,6 +35,12 @@ For a physical device, choose your Apple development team and use a unique bundl
 
 If the saved-data store cannot open, Pantry shows a retry screen and leaves the existing data untouched.
 
+## Continuous integration
+
+GitHub Actions runs the unit tests on every push to `main` and on pull requests. It chooses an available iPhone Simulator on the runner instead of depending on one device name.
+
+The UI and live API tests still run locally. Keeping those out of CI avoids treating a temporary simulator or TheMealDB problem as a code failure.
+
 ## Tests
 
 The project includes unit tests for networking, parsing, scheduling, and persistence, plus UI tests for the main user flows.
@@ -65,3 +71,12 @@ The Xcode project is already included. If you have XcodeGen installed, you can r
 ```sh
 xcodegen generate
 ```
+
+## Before a demo or release
+
+1. Pull `main` and confirm there are no uncommitted changes.
+2. Run the full test suite, then run it once more with the live API checks enabled.
+3. Open the normal app, save a recipe, add it to the planner, fully close the app, and reopen it to confirm the data remains.
+4. After loading a few recipes, turn off the network and reopen a saved and a recent recipe.
+5. Check Browse, Search, Saved, Recipe Detail, and Meal Planner on the presentation simulator or device.
+6. For a release build, select a signing team and use **Product > Archive** in Xcode.

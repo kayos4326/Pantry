@@ -10,32 +10,35 @@ struct RecipeImage: View {
     var maxPixelSize: CGFloat = 600
 
     var body: some View {
-        if let image = decodedStoredImage {
-            Image(uiImage: image)
-                .resizable()
-                .scaledToFill()
-        } else {
-            AsyncImage(url: url, transaction: Transaction(animation: .easeInOut(duration: 0.25))) { phase in
-                switch phase {
-                case .success(let image):
-                    image
-                        .resizable()
-                        .scaledToFill()
-                        .transition(.opacity)
-                case .failure:
-                    Theme.photoPlaceholder
-                        .overlay {
-                            Image(systemName: "fork.knife")
-                                .font(.system(size: 22))
-                                .foregroundStyle(Theme.textMuted.opacity(0.7))
-                        }
-                case .empty:
-                    Theme.photoPlaceholder.shimmering()
-                @unknown default:
-                    Theme.photoPlaceholder
+        Group {
+            if let image = decodedStoredImage {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                AsyncImage(url: url, transaction: Transaction(animation: .easeInOut(duration: 0.25))) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                            .transition(.opacity)
+                    case .failure:
+                        Theme.photoPlaceholder
+                            .overlay {
+                                Image(systemName: "fork.knife")
+                                    .font(.system(size: 22))
+                                    .foregroundStyle(Theme.textMuted.opacity(0.7))
+                            }
+                    case .empty:
+                        Theme.photoPlaceholder.shimmering()
+                    @unknown default:
+                        Theme.photoPlaceholder
+                    }
                 }
             }
         }
+        .accessibilityHidden(true)
     }
 
     private var decodedStoredImage: UIImage? {

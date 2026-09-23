@@ -156,7 +156,7 @@ struct RecipeDetailView: View {
             .overlay {
                 RecipeImage(
                     url: meal.thumbnailURL,
-                    storedData: savedRecipe?.imageData,
+                    storedData: savedRecipe?.imageData ?? recentMatches.first?.imageData,
                     cacheKey: "\(meal.id)-hero",
                     maxPixelSize: 1400
                 )

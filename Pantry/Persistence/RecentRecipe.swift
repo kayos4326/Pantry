@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import SwiftData
 
 /// A recently opened recipe that can be shown again without a network request.
@@ -17,6 +18,7 @@ final class RecentRecipe: StoredPhoto {
     @Attribute(.externalStorage) var imageData: Data?
 
     static let limit = 12
+    private static let logger = Logger(subsystem: "com.pantry.app.Pantry", category: "RecentRecipes")
 
     init(
         mealID: String,
@@ -79,9 +81,15 @@ final class RecentRecipe: StoredPhoto {
     @discardableResult
     static func record(_ meal: Meal, in context: ModelContext, limit: Int = limit) -> RecentRecipe {
         let id = meal.id
-        let existing = try? context.fetch(
-            FetchDescriptor<RecentRecipe>(predicate: #Predicate { $0.mealID == id })
-        ).first
+        let existing: RecentRecipe?
+        do {
+            existing = try context.fetch(
+                FetchDescriptor<RecentRecipe>(predicate: #Predicate { $0.mealID == id })
+            ).first
+        } catch {
+            logger.error("Could not look up recent recipe \(id, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            existing = nil
+        }
 
         let recent: RecentRecipe
         if let existing {
@@ -106,14 +114,25 @@ final class RecentRecipe: StoredPhoto {
     }
 
     static func clear(in context: ModelContext) {
-        try? context.delete(model: RecentRecipe.self)
+        do {
+            try context.delete(model: RecentRecipe.self)
+        } catch {
+            logger.error("Could not clear recent recipes: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     private static func trim(to limit: Int, in context: ModelContext) {
         let descriptor = FetchDescriptor<RecentRecipe>(
             sortBy: [SortDescriptor(\.viewedAt, order: .reverse)]
         )
-        guard let all = try? context.fetch(descriptor), all.count > limit else { return }
+        let all: [RecentRecipe]
+        do {
+            all = try context.fetch(descriptor)
+        } catch {
+            logger.error("Could not trim recent recipes: \(error.localizedDescription, privacy: .public)")
+            return
+        }
+        guard all.count > limit else { return }
         for stale in all.dropFirst(limit) {
             context.delete(stale)
         }

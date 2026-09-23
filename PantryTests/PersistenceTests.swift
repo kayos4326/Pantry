@@ -51,6 +51,57 @@ struct PersistenceTests {
         #expect(try Data(contentsOf: marker) == original)
     }
 
+    @Test("Saved recipes and plans survive closing and reopening the store")
+    func onDiskStoreReopens() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let storeURL = root.appending(path: "Pantry.store")
+        let mealDate = Calendar.current.startOfDay(for: .now)
+
+        func writeStore() throws {
+            let configuration = ModelConfiguration(
+                "ReopenStore",
+                schema: PantryModelContainer.schema,
+                url: storeURL
+            )
+            let container = try ModelContainer(
+                for: PantryModelContainer.schema,
+                configurations: [configuration]
+            )
+            let context = ModelContext(container)
+            let saved = recipe("52795", name: "Chicken Handi")
+            context.insert(saved)
+            context.insert(PlannedMeal(date: mealDate, recipe: saved))
+            try context.save()
+        }
+
+        func verifyReopenedStore() throws {
+            let configuration = ModelConfiguration(
+                "ReopenStore",
+                schema: PantryModelContainer.schema,
+                url: storeURL
+            )
+            let container = try ModelContainer(
+                for: PantryModelContainer.schema,
+                configurations: [configuration]
+            )
+            let context = ModelContext(container)
+            let saved = try #require(try context.fetch(FetchDescriptor<SavedRecipe>()).first)
+            let plan = try #require(try context.fetch(FetchDescriptor<PlannedMeal>()).first)
+
+            #expect(saved.mealID == "52795")
+            #expect(saved.name == "Chicken Handi")
+            #expect(plan.recipe?.mealID == saved.mealID)
+            #expect(plan.date == mealDate)
+        }
+
+        try writeStore()
+        try verifyReopenedStore()
+    }
+
     @Test("A saved recipe round-trips every field, including ingredients, for offline use")
     func roundTrip() throws {
         let context = try makeContext()
